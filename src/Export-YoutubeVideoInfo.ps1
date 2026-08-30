@@ -39,7 +39,6 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 
 Import-Module (Join-Path $PSScriptRoot 'YoutubeSource.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Providers/GroqProvider.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SummaryProvider.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'MarkdownBuilder.psm1') -Force
 
@@ -62,18 +61,19 @@ if (-not (Test-Path $PromptPath)) {
 $rawConfig = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
 
 $provider = Get-ConfigValue $rawConfig 'Provider' 'Groq'
-$providerConfigName = Get-ConfigValue $rawConfig 'ProviderConfigPath' ''
-if ([string]::IsNullOrWhiteSpace($providerConfigName)) {
-    throw "В основном config.json не задан ProviderConfigPath — имя файла с настройками провайдера (см. README.md)."
-}
 
-# Путь к файлу настроек провайдера считаем от каталога основного конфига
-$providerConfigPath = $providerConfigName
-if (-not [System.IO.Path]::IsPathRooted($providerConfigPath)) {
-    $providerConfigPath = Join-Path (Split-Path $ConfigPath -Parent) $providerConfigName
+# Подключаем ровно тот модуль провайдера, что указан в настройке (у всех одинаковая функция Invoke-ProviderSummary)
+$providerModulePath = Join-Path $PSScriptRoot "Providers/$($provider)Provider.psm1"
+if (-not (Test-Path $providerModulePath)) {
+    throw "Модуль провайдера не найден: $providerModulePath. Ожидается 'Providers/<Provider>Provider.psm1' (см. README.md)."
 }
+Import-Module $providerModulePath -Force
+
+# Имя файла настроек провайдера вычисляется автоматически: <provider>.config.json рядом с config.json
+$providerConfigName = "$($provider.ToLowerInvariant()).config.json"
+$providerConfigPath = Join-Path (Split-Path $ConfigPath -Parent) $providerConfigName
 if (-not (Test-Path $providerConfigPath)) {
-    throw "Файл настроек провайдера не найден: $providerConfigPath. Создайте его (см. *.config.example.json и README.md)."
+    throw "Файл настроек провайдера не найден: $providerConfigPath. Ожидается '$providerConfigName' рядом с config.json (см. README.md)."
 }
 $rawProvider = Get-Content -Path $providerConfigPath -Raw | ConvertFrom-Json
 

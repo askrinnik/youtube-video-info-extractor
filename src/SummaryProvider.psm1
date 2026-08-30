@@ -17,7 +17,7 @@ function Get-VideoSummary {
     if ($maxTokens -le 0) { $maxTokens = 4000 }
 
     if ((Get-EstimatedTokens $Transcript) -le $maxTokens) {
-        return (Invoke-SummaryProvider -SystemPrompt $Prompt -UserContent $Transcript -Config $Config)
+        return (Invoke-ProviderSummary -SystemPrompt $Prompt -UserContent $Transcript -Config $Config)
     }
 
     $chunks = Split-Transcript -Transcript $Transcript -MaxTokens $maxTokens
@@ -26,7 +26,7 @@ function Get-VideoSummary {
     $partials = [System.Collections.Generic.List[string]]::new()
     for ($n = 0; $n -lt $chunks.Count; $n++) {
         $partPrompt = $Prompt + "`n`nЭто ЧАСТЬ $($n + 1) из $($chunks.Count) транскрипта одного видео. Составь summary только для этой части, строго соблюдая требуемый формат."
-        $partials.Add((Invoke-SummaryProvider -SystemPrompt $partPrompt -UserContent $chunks[$n] -Config $Config))
+        $partials.Add((Invoke-ProviderSummary -SystemPrompt $partPrompt -UserContent $chunks[$n] -Config $Config))
     }
 
     return (Merge-Summaries -Partials $partials -Prompt $Prompt -Config $Config -MaxTokens $maxTokens)
@@ -55,7 +55,7 @@ function Merge-Summaries {
         foreach ($item in $items) {
             $itemTokens = Get-EstimatedTokens $item
             if ($batch.Count -gt 0 -and ($batchTokens + $itemTokens) -gt $MaxTokens) {
-                $next.Add((Invoke-SummaryProvider -SystemPrompt $mergePrompt -UserContent ($batch -join "`n") -Config $Config))
+                $next.Add((Invoke-ProviderSummary -SystemPrompt $mergePrompt -UserContent ($batch -join "`n") -Config $Config))
                 $batch.Clear()
                 $batchTokens = 0
             }
@@ -66,7 +66,7 @@ function Merge-Summaries {
             $next.Add($batch[0])
         }
         elseif ($batch.Count -gt 1) {
-            $next.Add((Invoke-SummaryProvider -SystemPrompt $mergePrompt -UserContent ($batch -join "`n") -Config $Config))
+            $next.Add((Invoke-ProviderSummary -SystemPrompt $mergePrompt -UserContent ($batch -join "`n") -Config $Config))
         }
 
         # Защита от зацикливания, если ужать не удалось
@@ -83,18 +83,6 @@ function Get-EstimatedTokens {
     if ([string]::IsNullOrEmpty($Text)) { return 0 }
     # Оценка по UTF-8 байтам устойчивее к языку, чем по символам (кириллица «весит» больше)
     return [int][math]::Ceiling([System.Text.Encoding]::UTF8.GetByteCount($Text) / 2.5)
-}
-
-function Invoke-SummaryProvider {
-    param(
-        [Parameter(Mandatory)][string]$SystemPrompt,
-        [Parameter(Mandatory)][string]$UserContent,
-        [Parameter(Mandatory)]$Config
-    )
-    switch (($Config.Provider).ToString().ToLowerInvariant()) {
-        'groq' { return (Invoke-GroqSummary -SystemPrompt $SystemPrompt -UserContent $UserContent -Config $Config) }
-        default { throw "Неизвестный провайдер '$($Config.Provider)'. Сейчас поддерживается: Groq." }
-    }
 }
 
 function Split-Transcript {

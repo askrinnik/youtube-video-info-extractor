@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 Set-StrictMode -Version Latest
 
-function Invoke-GroqSummary {
+function Invoke-ProviderSummary {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$SystemPrompt,
@@ -70,5 +70,5 @@ function Get-RetryAfterSeconds {
     return 60
 }
 
-Export-ModuleMember -Function Invoke-GroqSummary
+Export-ModuleMember -Function Invoke-ProviderSummary
 

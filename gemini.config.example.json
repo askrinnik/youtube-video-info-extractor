@@ -1,0 +1,7 @@
+{
+  "ApiKey": "ЗАМЕНИ_НА_СВОЙ_КЛЮЧ_GEMINI",
+  "Model": "gemini-flash-latest",
+  "BaseUrl": "https://generativelanguage.googleapis.com/v1beta",
+  "Temperature": 0.3,
+  "MaxTokensPerChunk": 100000
+}

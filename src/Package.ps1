@@ -23,7 +23,7 @@ $include = @(
     'SummaryPrompt.md',
     'README.md',
     'config.example.json',
-    'groq.config.example.json',
+    '*.config.example.json',
     '.gitignore',
     'yt-dlp.exe',
     'src'
@@ -42,7 +42,7 @@ try {
             Write-Warning "Пропущено (не найдено): $item"
             continue
         }
-        Copy-Item -Path $src -Destination (Join-Path $stage $item) -Recurse -Force
+        Copy-Item -Path $src -Destination $stage -Recurse -Force
     }
 
     # Секретные конфиги (реальные *.config.json) в архив не кладём — только *.config.example.json
