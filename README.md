@@ -1,4 +1,4 @@
-# YoutubeVideoInfoExtracter
+# YouTube Video Info Extractor
 
 PowerShell-скрипт: по ссылке на YouTube-видео формирует Markdown-документ в формате
 Obsidian Web Clipper с кратким содержанием (summary) и полным транскриптом.
