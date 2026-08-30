@@ -8,6 +8,9 @@ yt-dlp.exe
 # Результаты работы скрипта
 output/
 
+# Собранные архивы для разворачивания
+youtube-video-info-extractor-*.zip
+
 # Временные файлы
 *.tmp
 temp/
