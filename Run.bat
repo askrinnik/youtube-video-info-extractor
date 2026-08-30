@@ -5,6 +5,6 @@ REM ============================================================
 
 set "URL=https://youtu.be/TICae6-uNeM"
 
-pwsh -NoProfile -File "%~dp0Export-YoutubeVideoInfo.ps1" -Url "%URL%"
+pwsh -NoProfile -File "%~dp0src\Export-YoutubeVideoInfo.ps1" -Url "%URL%"
 
 pause

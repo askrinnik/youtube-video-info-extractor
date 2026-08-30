@@ -11,9 +11,9 @@
 .PARAMETER OutputDirectory
     Каталог для итогового файла (переопределяет значение из config.json).
 .PARAMETER ConfigPath
-    Путь к файлу настроек. По умолчанию config.json рядом со скриптом.
+    Путь к файлу настроек. По умолчанию config.json в корне проекта.
 .PARAMETER PromptPath
-    Путь к файлу промта. По умолчанию SummaryPrompt.md рядом со скриптом.
+    Путь к файлу промта. По умолчанию SummaryPrompt.md в корне проекта.
 .PARAMETER KeepJson
     Сохранить рядом JSON с промежуточными данными.
 .EXAMPLE
@@ -26,9 +26,9 @@ param(
 
     [string]$OutputDirectory,
 
-    [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
+    [string]$ConfigPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'config.json'),
 
-    [string]$PromptPath = (Join-Path $PSScriptRoot 'SummaryPrompt.md'),
+    [string]$PromptPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'SummaryPrompt.md'),
 
     [switch]$KeepJson
 )
@@ -36,10 +36,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot 'src/YoutubeSource.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'src/Providers/GroqProvider.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'src/SummaryProvider.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'src/MarkdownBuilder.psm1') -Force
+$projectRoot = Split-Path $PSScriptRoot -Parent
+
+Import-Module (Join-Path $PSScriptRoot 'YoutubeSource.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Providers/GroqProvider.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'SummaryProvider.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'MarkdownBuilder.psm1') -Force
 
 function Get-ConfigValue {
     param($Object, [string]$Name, $Default)
@@ -71,7 +73,7 @@ if (-not [System.IO.Path]::IsPathRooted($providerConfigPath)) {
     $providerConfigPath = Join-Path (Split-Path $ConfigPath -Parent) $providerConfigName
 }
 if (-not (Test-Path $providerConfigPath)) {
-    throw "Файл настроек провайдера не найден: $providerConfigPath. Создайте его (см. providers/*.config.example.json и README.md)."
+    throw "Файл настроек провайдера не найден: $providerConfigPath. Создайте его (см. *.config.example.json и README.md)."
 }
 $rawProvider = Get-Content -Path $providerConfigPath -Raw | ConvertFrom-Json
 
@@ -92,9 +94,9 @@ $config = [pscustomobject]@{
 if ($PSBoundParameters.ContainsKey('OutputDirectory')) { $config.OutputDirectory = $OutputDirectory }
 if ($KeepJson.IsPresent) { $config.KeepJson = $true }
 
-# Относительный путь к yt-dlp считаем от каталога скрипта
+# Относительный путь к yt-dlp считаем от корня проекта
 if (-not [string]::IsNullOrWhiteSpace($config.YtDlpPath) -and -not [System.IO.Path]::IsPathRooted($config.YtDlpPath)) {
-    $config.YtDlpPath = Join-Path $PSScriptRoot $config.YtDlpPath
+    $config.YtDlpPath = Join-Path $projectRoot $config.YtDlpPath
 }
 
 $prompt = Get-Content -Path $PromptPath -Raw
@@ -116,7 +118,7 @@ $markdown = New-VideoMarkdown -Metadata $meta -Summary $summary -Transcript $tra
 
 $outDir = $config.OutputDirectory
 if (-not [System.IO.Path]::IsPathRooted($outDir)) {
-    $outDir = Join-Path $PSScriptRoot $outDir
+    $outDir = Join-Path $projectRoot $outDir
 }
 if (-not (Test-Path $outDir)) {
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null

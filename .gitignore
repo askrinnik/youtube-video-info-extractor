@@ -1,6 +1,6 @@
 # Локальные настройки с API-ключом — не коммитить
 config.json
-providers/*.config.json
+*.config.json
 
 # Автономный yt-dlp (бинарник)
 yt-dlp.exe

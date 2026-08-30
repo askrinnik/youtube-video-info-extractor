@@ -2,28 +2,31 @@
 <#
 .SYNOPSIS
     Собирает zip-архив со всеми файлами, необходимыми для разворачивания
-    проекта на другом компьютере. Секреты (config.json, providers/*.config.json)
+    проекта на другом компьютере. Секреты (config.json, *.config.json)
     в архив НЕ включаются.
 #>
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory = $PSScriptRoot
+    [string]$OutputDirectory
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Файлы и папки, которые попадут в архив
+$projectRoot = Split-Path $PSScriptRoot -Parent
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) { $OutputDirectory = $projectRoot }
+
+# Файлы и папки (относительно корня проекта), которые попадут в архив
 $include = @(
-    'Export-YoutubeVideoInfo.ps1',
+    'Run.bat',
+    'Package.bat',
     'SummaryPrompt.md',
     'README.md',
-    'Run.bat',
     'config.example.json',
+    'groq.config.example.json',
     '.gitignore',
-    'src',
-    'providers',
-    'yt-dlp.exe'
+    'yt-dlp.exe',
+    'src'
 )
 
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -34,7 +37,7 @@ $stage = Join-Path ([System.IO.Path]::GetTempPath()) "yvie_pkg_$timestamp"
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 try {
     foreach ($item in $include) {
-        $src = Join-Path $PSScriptRoot $item
+        $src = Join-Path $projectRoot $item
         if (-not (Test-Path $src)) {
             Write-Warning "Пропущено (не найдено): $item"
             continue
@@ -42,13 +45,10 @@ try {
         Copy-Item -Path $src -Destination (Join-Path $stage $item) -Recurse -Force
     }
 
-    # Секретные конфиги провайдеров в архив не кладём (оставляем только *.config.example.json)
-    $stageProviders = Join-Path $stage 'providers'
-    if (Test-Path $stageProviders) {
-        Get-ChildItem -Path $stageProviders -Filter '*.config.json' -File |
-            Where-Object { $_.Name -notlike '*.config.example.json' } |
-            Remove-Item -Force
-    }
+    # Секретные конфиги (реальные *.config.json) в архив не кладём — только *.config.example.json
+    Get-ChildItem -Path $stage -Filter '*.config.json' -File |
+        Where-Object { $_.Name -notlike '*.config.example.json' } |
+        Remove-Item -Force
 
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
     Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zipPath -CompressionLevel Optimal

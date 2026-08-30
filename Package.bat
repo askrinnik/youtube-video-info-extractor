@@ -1,9 +1,9 @@
 @echo off
 REM ============================================================
 REM  Сборка zip-архива для разворачивания на другом компьютере.
-REM  Секреты (config.json, providers/*.config.json) не включаются.
+REM  Секреты (config.json, *.config.json) не включаются.
 REM ============================================================
 
-pwsh -NoProfile -File "%~dp0Package.ps1"
+pwsh -NoProfile -File "%~dp0src\Package.ps1"
 
 pause

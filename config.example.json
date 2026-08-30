@@ -1,6 +1,6 @@
 {
   "Provider": "Groq",
-  "ProviderConfigPath": "./providers/groq.config.json",
+  "ProviderConfigPath": "./groq.config.json",
   "YtDlpPath": "./yt-dlp.exe",
   "OutputDirectory": "./output",
   "SubtitleLanguage": "",

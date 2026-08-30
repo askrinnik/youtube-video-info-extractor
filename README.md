@@ -38,31 +38,31 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
 
 - **`config.json`** — общие параметры (не зависят от LLM). Здесь же в поле
   `ProviderConfigPath` указывается путь ко второму файлу.
-- **`providers/<провайдер>.config.json`** — параметры конкретного LLM-провайдера
+- **`<провайдер>.config.json`** — параметры конкретного LLM-провайдера
   (ключ, модель и т.п.). При переходе на другую модель меняется только этот файл.
 
 1. Скопируйте шаблоны:
    ```powershell
    Copy-Item config.example.json config.json
-   Copy-Item providers/groq.config.example.json providers/groq.config.json
+   Copy-Item groq.config.example.json groq.config.json
    ```
-2. Откройте `providers/groq.config.json` и вставьте ключ в поле `ApiKey`.
+2. Откройте `groq.config.json` и вставьте ключ в поле `ApiKey`.
 
-Файлы `config.json` и `providers/*.config.json` добавлены в `.gitignore`.
+Файлы `config.json` и `*.config.json` добавлены в `.gitignore`.
 
 ### Параметры config.json (общие)
 
 | Поле                     | Назначение                                                        |
 |--------------------------|-------------------------------------------------------------------|
 | `Provider`               | Имя провайдера модели. Сейчас: `Groq`.                            |
-| `ProviderConfigPath`     | Путь к файлу настроек провайдера (например, `./providers/groq.config.json`). |
+| `ProviderConfigPath`     | Путь к файлу настроек провайдера (например, `./groq.config.json`). |
 | `YtDlpPath`              | Путь к `yt-dlp.exe`. Относительный — от каталога скрипта. Пусто — брать из PATH. |
 | `OutputDirectory`        | Каталог для итоговых файлов.                                      |
 | `SubtitleLanguage`       | Язык субтитров. **Пусто — определяется автоматически** из видео (поле `language`). Задайте код (`en`, `ru`, …), чтобы переопределить. |
 | `TranscriptGroupSeconds` | Шаг таймкодов в транскрипте (сек).                                |
 | `KeepJson`               | `true` — сохранять JSON с промежуточными данными.                 |
 
-### Параметры providers/groq.config.json (специфичные для провайдера)
+### Параметры groq.config.json (специфичные для провайдера)
 
 | Поле                         | Назначение                                                    |
 |------------------------------|---------------------------------------------------------------|
@@ -74,21 +74,25 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
 
 ## Запуск
 
+Простой вариант — вписать ссылку в `Run.bat` (строка `set "URL=..."`) и запустить его.
+
+Или напрямую через PowerShell:
+
 ```powershell
-./Export-YoutubeVideoInfo.ps1 -Url "https://youtu.be/SWDWc8oHAf4"
+./src/Export-YoutubeVideoInfo.ps1 -Url "https://youtu.be/SWDWc8oHAf4"
 ```
 
 Дополнительные параметры:
 
 ```powershell
 # Свой каталог вывода
-./Export-YoutubeVideoInfo.ps1 -Url "<url>" -OutputDirectory "D:\Notes"
+./src/Export-YoutubeVideoInfo.ps1 -Url "<url>" -OutputDirectory "D:\Notes"
 
 # Сохранить также JSON с промежуточными данными
-./Export-YoutubeVideoInfo.ps1 -Url "<url>" -KeepJson
+./src/Export-YoutubeVideoInfo.ps1 -Url "<url>" -KeepJson
 
 # Другой файл настроек
-./Export-YoutubeVideoInfo.ps1 -Url "<url>" -ConfigPath ".\config.work.json"
+./src/Export-YoutubeVideoInfo.ps1 -Url "<url>" -ConfigPath ".\config.work.json"
 ```
 
 ## Промт для summary
@@ -99,14 +103,17 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
 ## Структура проекта
 
 ```
-Export-YoutubeVideoInfo.ps1     # точка входа
+Run.bat                         # запуск экспорта (впишите URL внутри)
+Package.bat                     # сборка zip для разворачивания
 SummaryPrompt.md                # промт для summary
 config.example.json             # шаблон общих настроек
 config.json                     # ваши общие настройки (в .gitignore)
-providers/
-  groq.config.example.json      # шаблон настроек провайдера Groq
-  groq.config.json              # ваш ключ и модель (в .gitignore)
+groq.config.example.json        # шаблон настроек провайдера Groq
+groq.config.json                # ваш ключ и модель (в .gitignore)
+yt-dlp.exe                      # автономный yt-dlp (в .gitignore)
 src/
+  Export-YoutubeVideoInfo.ps1   # точка входа
+  Package.ps1                   # логика сборки архива
   YoutubeSource.psm1            # метаданные и субтитры через yt-dlp
   SummaryProvider.psm1          # выбор провайдера + чанкинг длинных транскриптов
   MarkdownBuilder.psm1          # сборка Markdown и имени файла
@@ -121,6 +128,6 @@ API Groq совместим с OpenAI, поэтому для другой мод
 1. Создайте `src/Providers/<Имя>Provider.psm1` с функцией
    `Invoke-<Имя>Summary -SystemPrompt -UserContent -Config`.
 2. Добавьте ветку в `switch` внутри `Invoke-SummaryProvider` в `src/SummaryProvider.psm1`.
-3. Импортируйте модуль в `Export-YoutubeVideoInfo.ps1`.
-4. Создайте свой `providers/<имя>.config.json` с параметрами этого провайдера
+3. Импортируйте модуль в `src/Export-YoutubeVideoInfo.ps1`.
+4. Создайте свой `<имя>.config.json` в корне с параметрами этого провайдера
    и укажите в `config.json` поля `Provider` и `ProviderConfigPath`.
