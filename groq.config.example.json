@@ -3,5 +3,5 @@
   "Model": "openai/gpt-oss-120b",
   "BaseUrl": "https://api.groq.com/openai/v1",
   "Temperature": 0.3,
-  "MaxTranscriptCharsPerChunk": 24000
+  "MaxTokensPerChunk": 4000
 }
