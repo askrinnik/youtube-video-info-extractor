@@ -58,7 +58,7 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
 | `ProviderConfigPath`     | Путь к файлу настроек провайдера (например, `./providers/groq.config.json`). |
 | `YtDlpPath`              | Путь к `yt-dlp.exe`. Относительный — от каталога скрипта. Пусто — брать из PATH. |
 | `OutputDirectory`        | Каталог для итоговых файлов.                                      |
-| `SubtitleLanguage`       | Язык субтитров для загрузки (например, `en`).                     |
+| `SubtitleLanguage`       | Язык субтитров. **Пусто — определяется автоматически** из видео (поле `language`). Задайте код (`en`, `ru`, …), чтобы переопределить. |
 | `TranscriptGroupSeconds` | Шаг таймкодов в транскрипте (сек).                                |
 | `KeepJson`               | `true` — сохранять JSON с промежуточными данными.                 |
 

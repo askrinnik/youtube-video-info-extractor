@@ -3,7 +3,7 @@
   "ProviderConfigPath": "./providers/groq.config.json",
   "YtDlpPath": "./yt-dlp.exe",
   "OutputDirectory": "./output",
-  "SubtitleLanguage": "en",
+  "SubtitleLanguage": "",
   "TranscriptGroupSeconds": 30,
   "KeepJson": false
 }

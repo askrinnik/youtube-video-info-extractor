@@ -35,6 +35,38 @@ function Get-YoutubeMetadata {
     return ($json | ConvertFrom-Json)
 }
 
+function Get-BestSubtitleLanguage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Metadata,
+        [string]$Preferred
+    )
+    $manual = @()
+    $auto = @()
+    $primary = ''
+
+    $sp = $Metadata.PSObject.Properties['subtitles']
+    if ($sp -and $sp.Value) { $manual = @($sp.Value.PSObject.Properties | ForEach-Object Name) }
+    $ap = $Metadata.PSObject.Properties['automatic_captions']
+    if ($ap -and $ap.Value) { $auto = @($ap.Value.PSObject.Properties | ForEach-Object Name) }
+    $lp = $Metadata.PSObject.Properties['language']
+    if ($lp -and $lp.Value) { $primary = "$($lp.Value)" }
+
+    $available = @($manual + $auto)
+
+    # \u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442: \u044f\u0432\u043d\u0430\u044f \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430, \u0437\u0430\u0442\u0435\u043c \u044f\u0437\u044b\u043a \u0441\u0430\u043c\u043e\u0433\u043e \u0432\u0438\u0434\u0435\u043e (\u043f\u043e\u043b\u0435 language)
+    foreach ($cand in @($Preferred, $primary)) {
+        if ([string]::IsNullOrWhiteSpace($cand)) { continue }
+        $base = ($cand -split '-')[0]
+        $hit = $available | Where-Object { $_ -ieq $cand -or $_ -imatch "^$([regex]::Escape($base))(-|$)" } | Select-Object -First 1
+        if ($hit) { return $base }
+    }
+
+    if ($manual.Count -gt 0) { return (($manual[0]) -split '-')[0] }
+    if (-not [string]::IsNullOrWhiteSpace($primary)) { return ($primary -split '-')[0] }
+    return 'en'
+}
+
 function Get-YoutubeTranscript {
     [CmdletBinding()]
     param(
@@ -153,4 +185,4 @@ function Format-Transcript {
     return $sb.ToString().TrimEnd()
 }
 
-Export-ModuleMember -Function Get-YoutubeMetadata, Get-YoutubeTranscript, Test-YtDlp, Get-YtDlpPath
+Export-ModuleMember -Function Get-YoutubeMetadata, Get-YoutubeTranscript, Test-YtDlp, Get-YtDlpPath, Get-BestSubtitleLanguage

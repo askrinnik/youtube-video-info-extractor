@@ -84,7 +84,7 @@ $config = [pscustomobject]@{
     MaxTranscriptCharsPerChunk = [int](Get-ConfigValue $rawProvider 'MaxTranscriptCharsPerChunk' 24000)
     YtDlpPath                  = Get-ConfigValue $rawConfig 'YtDlpPath' ''
     OutputDirectory            = Get-ConfigValue $rawConfig 'OutputDirectory' './output'
-    SubtitleLanguage           = Get-ConfigValue $rawConfig 'SubtitleLanguage' 'en'
+    SubtitleLanguage           = Get-ConfigValue $rawConfig 'SubtitleLanguage' ''
     TranscriptGroupSeconds     = [int](Get-ConfigValue $rawConfig 'TranscriptGroupSeconds' 30)
     KeepJson                   = [bool](Get-ConfigValue $rawConfig 'KeepJson' $false)
 }
@@ -102,8 +102,11 @@ $prompt = Get-Content -Path $PromptPath -Raw
 Write-Host "Получение метаданных видео..." -ForegroundColor Cyan
 $meta = Get-YoutubeMetadata -Url $Url -YtDlpPath $config.YtDlpPath
 
-Write-Host "Получение субтитров..." -ForegroundColor Cyan
-$transcript = Get-YoutubeTranscript -Url $Url -Language $config.SubtitleLanguage -GroupSeconds $config.TranscriptGroupSeconds -YtDlpPath $config.YtDlpPath
+# Язык субтитров: пустая настройка -> определяем автоматически из метаданных видео
+$language = Get-BestSubtitleLanguage -Metadata $meta -Preferred $config.SubtitleLanguage
+
+Write-Host "Получение субтитров (язык: $language)..." -ForegroundColor Cyan
+$transcript = Get-YoutubeTranscript -Url $Url -Language $language -GroupSeconds $config.TranscriptGroupSeconds -YtDlpPath $config.YtDlpPath
 
 Write-Host "Генерация summary через провайдер '$($config.Provider)' (модель $($config.Model))..." -ForegroundColor Cyan
 $summary = Get-VideoSummary -Prompt $prompt -Transcript $transcript -Config $config
