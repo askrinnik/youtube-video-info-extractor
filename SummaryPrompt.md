@@ -1,7 +1,15 @@
-Task: Summarize the following content in 5-10 bullet points with timestamp if it's transcript.  
-Use Russian language. 
+Задача: составь краткое содержание (summary) видео по его транскрипту с таймкодами.
 
-Instruction:   
-Before responding, make sure to perform a web search to find relevant insights or highlights from Glasp using appropriate keyword queries on site:glasp.co, site:blog.glasp.co, or site:read.glasp.co — never use exact match queries (e.g., quoted keywords like "keywords").   
-Use these insights only when they are directly relevant and meaningfully enhance the response by adding clarity, depth, or useful context — do not include them otherwise. 
-Be sure to cite any insights used with their corresponding URLs. If no relevant insights are found, do not use them. 
+Требования к формату:
+- Ответ на русском языке.
+- Верни маркированный список из 10–20 пунктов (используй символ `*` для маркера).
+- Каждый пункт охватывает диапазон таймкодов и описывает, что происходит в этом отрезке.
+- Формат каждого пункта строго такой:
+  `* **MM:SS–MM:SS — Короткий заголовок:** развёрнутое описание отрезка в 1–3 предложениях.`
+- Диапазоны таймкодов должны идти последовательно и покрывать всё видео от начала до конца без больших пропусков.
+- Бери таймкоды из транскрипта (в нём метки времени указаны в начале строк, например `**0:00**`).
+- Не добавляй вступлений, выводов или любого текста вне маркированного списка.
+- Не используй веб-поиск и не добавляй внешних ссылок или цитат.
+- Сохраняй важные числовые детали (скорости, время, размеры, проценты, единицы измерения и т.п.), если они присутствуют.
+
+Транскрипт видео будет передан ниже.
