@@ -1,0 +1,7 @@
+{
+  "ApiKey": "sk-ЗАМЕНИ_НА_СВОЙ_КЛЮЧ_OPENAI",
+  "Model": "gpt-4o-mini",
+  "BaseUrl": "https://api.openai.com/v1",
+  "Temperature": 0.3,
+  "MaxTokensPerChunk": 100000
+}

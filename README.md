@@ -23,7 +23,7 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
    - **Через winget** (попадёт в PATH): `winget install yt-dlp.yt-dlp` — тогда `YtDlpPath` можно оставить пустым.
 
    (опционально `winget install Gyan.FFmpeg` — на некоторых видео улучшает загрузку).
-3. **API-ключ** одного из провайдеров: **Groq** или **Google Gemini** (оба с бесплатным тарифом).
+3. **API-ключ** одного из провайдеров: **Groq** или **Google Gemini** (бесплатные) либо **OpenAI** (платный).
 
 ## Как получить ключ Groq
 
@@ -40,6 +40,16 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
 
 У Gemini бесплатный лимит по токенам в минуту (TPM) на порядки выше, чем у Groq,
 поэтому длинные видео обрабатываются быстрее и почти без пауз на лимит.
+
+## Как получить ключ OpenAI (платный)
+
+1. Откройте <https://platform.openai.com/api-keys> и войдите.
+2. Нажмите **Create new secret key**, скопируйте ключ вида `sk-...`.
+3. Пополните баланс в **Billing** (мин. ~$5) — API оплачивается отдельно и **не входит**
+   в подписку ChatGPT Plus.
+
+У OpenAI на платном тарифе высокие лимиты, поэтому длинные видео обрабатываются
+быстро, без долгих пауз.
 
 ## Настройка
 
@@ -68,6 +78,15 @@ Copy-Item gemini.config.example.json gemini.config.json
 
 Вставьте ключ в `gemini.config.json` → `ApiKey`. В `config.json` укажите `"Provider": "Gemini"`.
 
+### Вариант C — OpenAI (платный)
+
+```powershell
+Copy-Item config.example.json config.json
+Copy-Item openai.config.example.json openai.config.json
+```
+
+Вставьте ключ в `openai.config.json` → `ApiKey`. В `config.json` укажите `"Provider": "OpenAI"`.
+
 Переключение между провайдерами — только поле `Provider` (соответствующий файл подхватывается автоматически).
 
 Файлы `config.json` и `*.config.json` добавлены в `.gitignore`.
@@ -76,7 +95,7 @@ Copy-Item gemini.config.example.json gemini.config.json
 
 | Поле                     | Назначение                                                        |
 |--------------------------|-------------------------------------------------------------------|
-| `Provider`               | Имя провайдера: `Groq` или `Gemini`. Файл настроек провайдера (`<provider>.config.json`) подбирается автоматически. |
+| `Provider`               | Имя провайдера: `Groq`, `Gemini` или `OpenAI`. Файл настроек провайдера (`<provider>.config.json`) подбирается автоматически. |
 | `YtDlpPath`              | Путь к `yt-dlp.exe`. Относительный — от каталога скрипта. Пусто — брать из PATH. |
 | `OutputDirectory`        | Каталог для итоговых файлов.                                      |
 | `SubtitleLanguage`       | Язык субтитров. **Пусто — определяется автоматически** из видео (поле `language`). Задайте код (`en`, `ru`, …), чтобы переопределить. |
@@ -103,6 +122,16 @@ Copy-Item gemini.config.example.json gemini.config.json
 | `BaseUrl`           | Endpoint Generative Language API.                                   |
 | `Temperature`       | Температура генерации summary.                                      |
 | `MaxTokensPerChunk` | Порог чанкинга в токенах. У Gemini лимит TPM высокий, можно ставить большим (напр. 100000) — чанкинг почти не нужен. |
+
+**openai.config.json:**
+
+| Поле                | Назначение                                                          |
+|---------------------|---------------------------------------------------------------------|
+| `ApiKey`            | Ваш ключ `sk-...`.                                                  |
+| `Model`             | Модель OpenAI (по умолчанию `gpt-4o-mini`). Список: `GET /v1/models`. |
+| `BaseUrl`           | Endpoint OpenAI (`https://api.openai.com/v1`).                      |
+| `Temperature`       | Температура генерации summary.                                      |
+| `MaxTokensPerChunk` | Порог чанкинга в токенах. На платном тарифе лимиты высокие — можно большим (напр. 100000). |
 
 ## Запуск
 
@@ -181,6 +210,7 @@ config.example.json             # шаблон общих настроек
 config.json                     # ваши общие настройки (в .gitignore)
 groq.config.example.json        # шаблон настроек провайдера Groq
 gemini.config.example.json      # шаблон настроек провайдера Gemini
+openai.config.example.json      # шаблон настроек провайдера OpenAI
 groq.config.json                # ваш ключ Groq (в .gitignore)
 gemini.config.json              # ваш ключ Gemini (в .gitignore)
 yt-dlp.exe                      # автономный yt-dlp (в .gitignore)
@@ -193,6 +223,7 @@ src/
   Providers/
     GroqProvider.psm1           # вызов Groq API
     GeminiProvider.psm1         # вызов Google Gemini API
+    OpenAIProvider.psm1         # вызов OpenAI API
 ```
 
 ## Добавление нового провайдера
