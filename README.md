@@ -23,7 +23,7 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
    - **Через winget** (попадёт в PATH): `winget install yt-dlp.yt-dlp` — тогда `YtDlpPath` можно оставить пустым.
 
    (опционально `winget install Gyan.FFmpeg` — на некоторых видео улучшает загрузку).
-3. **API-ключ** одного из провайдеров: **Groq** или **Google Gemini** (бесплатные) либо **OpenAI** (платный).
+3. **API-ключ** одного из провайдеров: **Groq** или **Google Gemini** (бесплатные) либо **OpenAI** / **Anthropic Claude** (платные).
 
 ## Как получить ключ Groq
 
@@ -50,6 +50,32 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
 
 У OpenAI на платном тарифе высокие лимиты, поэтому длинные видео обрабатываются
 быстро, без долгих пауз.
+
+## Как получить ключ Anthropic Claude (платный)
+
+1. Откройте <https://platform.claude.com/> → **API Keys** и войдите.
+2. Создайте ключ вида `sk-ant-...`.
+3. Пополните баланс в **Billing** — API оплачивается отдельно и **не входит** в подписку Claude Pro.
+
+> **Важно про ключи и Workspaces (иначе получите ошибки 400).**
+>
+> У Anthropic есть два типа ключей:
+> - **Workspace-ключ** — создан **внутри** конкретного воркспейса. Заголовок воркспейса
+>   ему не нужен. **Это самый простой вариант** — оставьте `WorkspaceId` пустым.
+> - **Personal / identity-linked ключ** (в списке: Type = *Personal*, Workspace = *All workspaces*).
+>   Такой ключ не привязан к одному воркспейсу, поэтому API требует заголовок
+>   `anthropic-workspace-id` с ID вида `wrkspc_...`. В нашем конфиге это поле `WorkspaceId`.
+>
+> Как создать **Workspace-ключ**: в консоли переключитесь в нужный воркспейс
+> (например, Default) и создайте ключ **на его странице** API keys.
+>
+> Нюанс с **Default**: у воркспейса Default **не отображается ID** в консоли, и значение
+> `default` API **не принимает**. Поэтому связка «Personal-ключ + Default» не работает.
+> Если хотите оставить Personal-ключ — создайте **отдельный (не Default) воркспейс**:
+> у него ID `wrkspc_...` виден в таблице Workspaces, впишите его в `WorkspaceId`.
+>
+> Ещё нюанс: у новых моделей Claude параметр `temperature` **устарел** — поэтому
+> `SendTemperature` по умолчанию `false` (для старых моделей можно включить).
 
 ## Настройка
 
@@ -87,6 +113,15 @@ Copy-Item openai.config.example.json openai.config.json
 
 Вставьте ключ в `openai.config.json` → `ApiKey`. В `config.json` укажите `"Provider": "OpenAI"`.
 
+### Вариант D — Anthropic Claude (платный)
+
+```powershell
+Copy-Item config.example.json config.json
+Copy-Item anthropic.config.example.json anthropic.config.json
+```
+
+Вставьте ключ в `anthropic.config.json` → `ApiKey`. В `config.json` укажите `"Provider": "Anthropic"`.
+
 Переключение между провайдерами — только поле `Provider` (соответствующий файл подхватывается автоматически).
 
 Файлы `config.json` и `*.config.json` добавлены в `.gitignore`.
@@ -95,7 +130,7 @@ Copy-Item openai.config.example.json openai.config.json
 
 | Поле                     | Назначение                                                        |
 |--------------------------|-------------------------------------------------------------------|
-| `Provider`               | Имя провайдера: `Groq`, `Gemini` или `OpenAI`. Файл настроек провайдера (`<provider>.config.json`) подбирается автоматически. |
+| `Provider`               | Имя провайдера: `Groq`, `Gemini`, `OpenAI` или `Anthropic`. Файл настроек провайдера (`<provider>.config.json`) подбирается автоматически. |
 | `YtDlpPath`              | Путь к `yt-dlp.exe`. Относительный — от каталога скрипта. Пусто — брать из PATH. |
 | `OutputDirectory`        | Каталог для итоговых файлов.                                      |
 | `SubtitleLanguage`       | Язык субтитров. **Пусто — определяется автоматически** из видео (поле `language`). Задайте код (`en`, `ru`, …), чтобы переопределить. |
@@ -132,6 +167,19 @@ Copy-Item openai.config.example.json openai.config.json
 | `BaseUrl`           | Endpoint OpenAI (`https://api.openai.com/v1`).                      |
 | `Temperature`       | Температура генерации summary.                                      |
 | `MaxTokensPerChunk` | Порог чанкинга в токенах. На платном тарифе лимиты высокие — можно большим (напр. 100000). |
+
+**anthropic.config.json:**
+
+| Поле                | Назначение                                                          |
+|---------------------|---------------------------------------------------------------------|
+| `ApiKey`            | Ваш ключ `sk-ant-...`.                                              |
+| `Model`             | Модель Claude (по умолчанию `claude-sonnet-5`; быстрее/дешевле — `claude-haiku-4-5`). |
+| `BaseUrl`           | Endpoint Anthropic (`https://api.anthropic.com/v1`).               |
+| `Temperature`       | Температура. Используется только если `SendTemperature: true`.      |
+| `SendTemperature`   | Слать ли `temperature`. У новых моделей Claude параметр **устарел**, поэтому по умолчанию `false`. Включайте только для старых моделей, которые его принимают. |
+| `MaxTokensPerChunk` | Порог чанкинга в токенах (большой контекст — можно 100000).         |
+| `MaxOutputTokens`   | Лимит длины ответа (у Anthropic обязателен, по умолчанию 4096).     |
+| `WorkspaceId`       | ID рабочего пространства (`wrkspc_...`). Нужен **только для Personal / identity-linked ключей**. Для ключа, созданного внутри воркспейса, оставьте пустым. |
 
 ## Запуск
 
@@ -211,6 +259,7 @@ config.json                     # ваши общие настройки (в .gi
 groq.config.example.json        # шаблон настроек провайдера Groq
 gemini.config.example.json      # шаблон настроек провайдера Gemini
 openai.config.example.json      # шаблон настроек провайдера OpenAI
+anthropic.config.example.json   # шаблон настроек провайдера Anthropic
 groq.config.json                # ваш ключ Groq (в .gitignore)
 gemini.config.json              # ваш ключ Gemini (в .gitignore)
 yt-dlp.exe                      # автономный yt-dlp (в .gitignore)
@@ -224,6 +273,7 @@ src/
     GroqProvider.psm1           # вызов Groq API
     GeminiProvider.psm1         # вызов Google Gemini API
     OpenAIProvider.psm1         # вызов OpenAI API
+    AnthropicProvider.psm1      # вызов Anthropic Claude API
 ```
 
 ## Добавление нового провайдера

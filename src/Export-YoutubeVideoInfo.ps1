@@ -91,6 +91,13 @@ $config = [pscustomobject]@{
     KeepJson                   = [bool](Get-ConfigValue $rawConfig 'KeepJson' $false)
 }
 
+# Пробрасываем провайдер-специфичные поля (напр. WorkspaceId, MaxOutputTokens) как есть
+foreach ($prop in $rawProvider.PSObject.Properties) {
+    if (-not $config.PSObject.Properties[$prop.Name]) {
+        $config | Add-Member -NotePropertyName $prop.Name -NotePropertyValue $prop.Value
+    }
+}
+
 if ($PSBoundParameters.ContainsKey('OutputDirectory')) { $config.OutputDirectory = $OutputDirectory }
 if ($KeepJson.IsPresent) { $config.KeepJson = $true }
 
