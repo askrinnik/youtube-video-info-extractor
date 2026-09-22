@@ -17,12 +17,15 @@ function Invoke-ProviderSummary {
     $uri = "$baseUrl/chat/completions"
 
     $payload = @{
-        model       = $Config.Model
-        temperature = [double]$Config.Temperature
-        messages    = @(
+        model    = $Config.Model
+        messages = @(
             @{ role = 'system'; content = $SystemPrompt },
             @{ role = 'user'; content = $UserContent }
         )
+    }
+    # Модели gpt-5* принимают только temperature по умолчанию (1); свою не отправляем.
+    if ($Config.Model -notlike 'gpt-5*') {
+        $payload.temperature = [double]$Config.Temperature
     }
     $body = [System.Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 6))
     $headers = @{ Authorization = "Bearer $($Config.ApiKey)" }
