@@ -87,7 +87,7 @@ function Get-YoutubeTranscript {
         for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
             # Не глушим вывод yt-dlp: перехватываем stderr, чтобы показать реальную причину сбоя
             $output = & $ytDlp --skip-download --write-auto-subs --write-subs `
-                --sub-langs "$Language.*" --sub-format vtt `
+                --sub-langs "$Language" --sub-format vtt `
                 -o $outTemplate $Url 2>&1 | Out-String
 
             $vtt = Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Select-Object -First 1
