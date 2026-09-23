@@ -74,20 +74,43 @@ function Get-YoutubeTranscript {
         [string]$Url,
         [string]$Language = 'en',
         [int]$GroupSeconds = 30,
-        [string]$YtDlpPath
+        [string]$YtDlpPath,
+        [int]$MaxAttempts = 4
     )
     $ytDlp = Get-YtDlpPath -Path $YtDlpPath
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ytvi_" + [System.Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     try {
         $outTemplate = Join-Path $tempDir '%(id)s.%(ext)s'
-        & $ytDlp --skip-download --write-auto-subs --write-subs `
-            --sub-langs "$Language.*" --sub-format vtt `
-            --no-warnings -o $outTemplate $Url 2>$null | Out-Null
+        $vtt = $null
+        $lastError = ''
+        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+            # Не глушим вывод yt-dlp: перехватываем stderr, чтобы показать реальную причину сбоя
+            $output = & $ytDlp --skip-download --write-auto-subs --write-subs `
+                --sub-langs "$Language.*" --sub-format vtt `
+                -o $outTemplate $Url 2>&1 | Out-String
 
-        $vtt = Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Select-Object -First 1
+            $vtt = Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($vtt) { break }
+
+            $lastError = (($output -split '\r?\n') | Where-Object { $_ -match 'ERROR|WARNING' } | Select-Object -Last 3) -join ' | '
+
+            # HTTP 429 — временный лимит YouTube на эндпоинт субтитров; ждём с нарастающей паузой и пробуем снова
+            if ($output -match '429|Too Many Requests' -and $attempt -lt $MaxAttempts) {
+                $delay = 10 * $attempt
+                Write-Warning "YouTube вернул HTTP 429 (превышен лимит запросов). Повтор через $delay c (попытка $attempt из $MaxAttempts)..."
+                Start-Sleep -Seconds $delay
+                continue
+            }
+            break
+        }
+
         if (-not $vtt) {
-            Write-Warning "Субтитры для языка '$Language' не найдены. Транскрипт будет пустым."
+            Write-Warning "Не удалось получить субтитры для языка '$Language'. Транскрипт будет пустым."
+            if ($lastError) { Write-Warning "Причина (yt-dlp): $lastError" }
+            if ($lastError -match 'PO Token|JavaScript runtime') {
+                Write-Warning "Похоже, отсутствует JS-runtime для yt-dlp. Установите deno (см. README.md) — положите deno.exe рядом с yt-dlp.exe."
+            }
             return ''
         }
         $entries = ConvertFrom-VttFile -Path $vtt.FullName

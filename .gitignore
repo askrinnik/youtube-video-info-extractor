@@ -5,6 +5,9 @@ config.json
 # Автономный yt-dlp (бинарник)
 yt-dlp.exe
 
+# JS-runtime для yt-dlp (нужен YouTube для PO-токенов субтитров)
+deno.exe
+
 # Результаты работы скрипта
 output/
 

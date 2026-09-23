@@ -23,7 +23,13 @@ Obsidian Web Clipper с кратким содержанием (summary) и по�
    - **Через winget** (попадёт в PATH): `winget install yt-dlp.yt-dlp` — тогда `YtDlpPath` можно оставить пустым.
 
    (опционально `winget install Gyan.FFmpeg` — на некоторых видео улучшает загрузку).
-3. **API-ключ** одного из провайдеров: **Groq** или **Google Gemini** (бесплатные) либо **OpenAI** / **Anthropic Claude** (платные).
+3. **JavaScript-runtime для yt-dlp** — с недавних пор YouTube требует PO-токены для загрузки
+   субтитров, и без JS-runtime yt-dlp получает `HTTP 429 Too Many Requests`, из-за чего транскрипт
+   (а значит и summary) остаётся пустым. Установите **Deno** (рекомендуется):
+   - скачайте `deno.exe` из [релизов Deno](https://github.com/denoland/deno/releases/latest)
+     и положите **рядом с `yt-dlp.exe`** (в корень проекта), либо
+   - `winget install DenoLand.Deno` (попадёт в PATH).
+4. **API-ключ** одного из провайдеров: **Groq** или **Google Gemini** (бесплатные) либо **OpenAI** / **Anthropic Claude** (платные).
 
 ## Как получить ключ Groq
 
