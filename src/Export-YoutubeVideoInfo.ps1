@@ -112,10 +112,10 @@ Write-Host "Получение метаданных видео..." -ForegroundCo
 $meta = Get-YoutubeMetadata -Url $Url -YtDlpPath $config.YtDlpPath
 
 # Язык субтитров: пустая настройка -> определяем автоматически из метаданных видео
-$language = Get-BestSubtitleLanguage -Metadata $meta -Preferred $config.SubtitleLanguage
+$languages = Get-BestSubtitleLanguage -Metadata $meta -Preferred $config.SubtitleLanguage
 
-Write-Host "Получение субтитров (язык: $language)..." -ForegroundColor Cyan
-$transcript = Get-YoutubeTranscript -Url $Url -Language $language -GroupSeconds $config.TranscriptGroupSeconds -YtDlpPath $config.YtDlpPath
+Write-Host "Получение субтитров (кандидаты: $($languages -join ', '))..." -ForegroundColor Cyan
+$transcript = Get-YoutubeTranscript -Url $Url -Languages $languages -GroupSeconds $config.TranscriptGroupSeconds -YtDlpPath $config.YtDlpPath
 
 Write-Host "Генерация summary через провайдер '$($config.Provider)' (модель $($config.Model))..." -ForegroundColor Cyan
 $summary = Get-VideoSummary -Prompt $prompt -Transcript $transcript -Config $config

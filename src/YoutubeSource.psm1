@@ -52,19 +52,49 @@ function Get-BestSubtitleLanguage {
     $lp = $Metadata.PSObject.Properties['language']
     if ($lp -and $lp.Value) { $primary = "$($lp.Value)" }
 
-    $available = @($manual + $auto)
-
-    # \u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442: \u044f\u0432\u043d\u0430\u044f \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430, \u0437\u0430\u0442\u0435\u043c \u044f\u0437\u044b\u043a \u0441\u0430\u043c\u043e\u0433\u043e \u0432\u0438\u0434\u0435\u043e (\u043f\u043e\u043b\u0435 language)
-    foreach ($cand in @($Preferred, $primary)) {
-        if ([string]::IsNullOrWhiteSpace($cand)) { continue }
-        $base = ($cand -split '-')[0]
-        $hit = $available | Where-Object { $_ -ieq $cand -or $_ -imatch "^$([regex]::Escape($base))(-|$)" } | Select-Object -First 1
-        if ($hit) { return $base }
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    $add = {
+        param([string]$key)
+        if (-not [string]::IsNullOrWhiteSpace($key) -and -not $candidates.Contains($key)) { $candidates.Add($key) }
     }
 
-    if ($manual.Count -gt 0) { return (($manual[0]) -split '-')[0] }
-    if (-not [string]::IsNullOrWhiteSpace($primary)) { return ($primary -split '-')[0] }
-    return 'en'
+    # Для базового языка: ручные -> оригинальная авто-дорожка (<base>-orig) -> обычная (<base>).
+    # Обычные (переведённые) авто-субтитры YouTube отдаёт через лимитируемый эндпоинт (HTTP 429),
+    # а <base>-orig скачивается стабильно, поэтому оригинал приоритетнее перевода.
+    $addBase = {
+        param([string]$cand)
+        if ([string]::IsNullOrWhiteSpace($cand)) { return }
+        $base = ($cand -split '-')[0]
+        $rx = "^$([regex]::Escape($base))(-|$)"
+        foreach ($m in ($manual | Where-Object { $_ -imatch $rx })) { & $add $m }
+        foreach ($o in ($auto   | Where-Object { $_ -imatch "^$([regex]::Escape($base))-orig$" })) { & $add $o }
+        foreach ($p in ($auto   | Where-Object { $_ -ieq $base })) { & $add $p }
+        foreach ($r in ($auto   | Where-Object { $_ -imatch $rx })) { & $add $r }
+    }
+
+    # Настройка пользователя важнее всего. Дальше выбираем порядок en/ru по языку видео:
+    # английское (или неизвестное) видео -> en, ru; не английское -> ru, en.
+    & $addBase $Preferred
+    $primaryBase = ''
+    if (-not [string]::IsNullOrWhiteSpace($primary)) { $primaryBase = ($primary -split '-')[0] }
+    if ($primaryBase -and $primaryBase -inotmatch '^en$') {
+        & $addBase 'ru'
+        & $addBase 'en'
+    }
+    else {
+        & $addBase 'en'
+        & $addBase 'ru'
+    }
+    # Язык из метаданных — в конце (YouTube отдаёт его нестабильно).
+    & $addBase $primary
+
+    # Финальный фолбэк: любые оригинальные авто-дорожки, ручные, затем всё остальное.
+    foreach ($o in ($auto   | Where-Object { $_ -match '-orig$' })) { & $add $o }
+    foreach ($m in $manual) { & $add $m }
+    foreach ($a in $auto)   { & $add $a }
+
+    if ($candidates.Count -eq 0) { & $add 'en' }
+    return $candidates.ToArray()
 }
 
 function Get-YoutubeTranscript {
@@ -72,31 +102,42 @@ function Get-YoutubeTranscript {
     param(
         [Parameter(Mandatory)]
         [string]$Url,
-        [string]$Language = 'en',
+        [string[]]$Languages = @('en'),
         [int]$GroupSeconds = 30,
         [string]$YtDlpPath,
-        [int]$MaxAttempts = 4
+        [int]$MaxAttempts = 3
     )
     $ytDlp = Get-YtDlpPath -Path $YtDlpPath
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ytvi_" + [System.Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     try {
         $outTemplate = Join-Path $tempDir '%(id)s.%(ext)s'
-        $vtt = $null
+        $langs = @($Languages | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($langs.Count -eq 0) { $langs = @('en') }
         $lastError = ''
+
         for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-            # Не глушим вывод yt-dlp: перехватываем stderr, чтобы показать реальную причину сбоя
-            $output = & $ytDlp --skip-download --write-auto-subs --write-subs `
-                --sub-langs "$Language" --sub-format vtt `
-                -o $outTemplate $Url 2>&1 | Out-String
+            $sawRateLimit = $false
+            foreach ($lang in $langs) {
+                Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
-            $vtt = Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($vtt) { break }
+                # Не глушим вывод yt-dlp: перехватываем stderr, чтобы показать реальную причину сбоя
+                $output = & $ytDlp --skip-download --write-auto-subs --write-subs `
+                    --sub-langs $lang --sub-format vtt `
+                    -o $outTemplate $Url 2>&1 | Out-String
 
-            $lastError = (($output -split '\r?\n') | Where-Object { $_ -match 'ERROR|WARNING' } | Select-Object -Last 3) -join ' | '
+                $vtt = Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($vtt) {
+                    $entries = ConvertFrom-VttFile -Path $vtt.FullName
+                    return (Format-Transcript -Entries $entries -GroupSeconds $GroupSeconds)
+                }
 
-            # HTTP 429 — временный лимит YouTube на эндпоинт субтитров; ждём с нарастающей паузой и пробуем снова
-            if ($output -match '429|Too Many Requests' -and $attempt -lt $MaxAttempts) {
+                $lastError = (($output -split '\r?\n') | Where-Object { $_ -match 'ERROR|WARNING' } | Select-Object -Last 2) -join ' | '
+                if ($output -match '429|Too Many Requests') { $sawRateLimit = $true }
+            }
+
+            # 429 лимитирует эндпоинт субтитров целиком — ждём и пробуем весь список заново
+            if ($sawRateLimit -and $attempt -lt $MaxAttempts) {
                 $delay = 10 * $attempt
                 Write-Warning "YouTube вернул HTTP 429 (превышен лимит запросов). Повтор через $delay c (попытка $attempt из $MaxAttempts)..."
                 Start-Sleep -Seconds $delay
@@ -105,16 +146,12 @@ function Get-YoutubeTranscript {
             break
         }
 
-        if (-not $vtt) {
-            Write-Warning "Не удалось получить субтитры для языка '$Language'. Транскрипт будет пустым."
-            if ($lastError) { Write-Warning "Причина (yt-dlp): $lastError" }
-            if ($lastError -match 'PO Token|JavaScript runtime') {
-                Write-Warning "Похоже, отсутствует JS-runtime для yt-dlp. Установите deno (см. README.md) — положите deno.exe рядом с yt-dlp.exe."
-            }
-            return ''
+        Write-Warning "Не удалось получить субтитры (пробованы: $($langs -join ', ')). Транскрипт будет пустым."
+        if ($lastError) { Write-Warning "Причина (yt-dlp): $lastError" }
+        if ($lastError -match 'PO Token|JavaScript runtime') {
+            Write-Warning "Похоже, отсутствует JS-runtime для yt-dlp. Установите deno (см. README.md) — положите deno.exe рядом с yt-dlp.exe."
         }
-        $entries = ConvertFrom-VttFile -Path $vtt.FullName
-        return (Format-Transcript -Entries $entries -GroupSeconds $GroupSeconds)
+        return ''
     }
     finally {
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
