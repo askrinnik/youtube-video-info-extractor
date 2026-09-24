@@ -28,11 +28,18 @@ function Get-YoutubeMetadata {
         [string]$YtDlpPath
     )
     $ytDlp = Get-YtDlpPath -Path $YtDlpPath
-    $json = & $ytDlp --dump-single-json --skip-download --no-warnings $Url 2>$null
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($json)) {
-        throw "Не удалось получить метаданные видео через yt-dlp для URL: $Url"
+    # Иногда yt-dlp возвращает ответ без поля language (отвечает web/tv-клиент) — повторяем, чтобы язык определился стабильно
+    $meta = $null
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $json = & $ytDlp --dump-single-json --skip-download --no-warnings $Url 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($json)) {
+            throw "Не удалось получить метаданные видео через yt-dlp для URL: $Url"
+        }
+        $meta = $json | ConvertFrom-Json
+        $lp = $meta.PSObject.Properties['language']
+        if ($lp -and -not [string]::IsNullOrWhiteSpace("$($lp.Value)")) { break }
     }
-    return ($json | ConvertFrom-Json)
+    return $meta
 }
 
 function Get-BestSubtitleLanguage {
@@ -51,6 +58,22 @@ function Get-BestSubtitleLanguage {
     if ($ap -and $ap.Value) { $auto = @($ap.Value.PSObject.Properties | ForEach-Object Name) }
     $lp = $Metadata.PSObject.Properties['language']
     if ($lp -and $lp.Value) { $primary = "$($lp.Value)" }
+
+    # Родной язык видео надёжнее брать из аудиодорожки-оригинала (format_note ~ "original"
+    # или максимальный language_preference): поле language yt-dlp отдаёт нестабильно,
+    # а для видео с дубляжом порой подставляет язык озвучки вместо оригинала.
+    $fp = $Metadata.PSObject.Properties['formats']
+    if ($fp -and $fp.Value) {
+        $audio = @($fp.Value | Where-Object {
+                $_.PSObject.Properties['acodec'] -and $_.acodec -ne 'none' -and
+                $_.PSObject.Properties['language'] -and $_.language
+            })
+        $orig = $audio | Where-Object { $_.PSObject.Properties['format_note'] -and $_.format_note -match '(?i)original' } | Select-Object -First 1
+        if (-not $orig -and $audio.Count -gt 0) {
+            $orig = $audio | Sort-Object -Property @{ Expression = { if ($_.PSObject.Properties['language_preference']) { [int]$_.language_preference } else { -999 } } } -Descending | Select-Object -First 1
+        }
+        if ($orig -and -not [string]::IsNullOrWhiteSpace("$($orig.language)")) { $primary = "$($orig.language)" }
+    }
 
     $candidates = [System.Collections.Generic.List[string]]::new()
     $add = {
@@ -72,12 +95,13 @@ function Get-BestSubtitleLanguage {
         foreach ($r in ($auto   | Where-Object { $_ -imatch $rx })) { & $add $r }
     }
 
-    # Настройка пользователя важнее всего. Дальше выбираем порядок en/ru по языку видео:
-    # английское (или неизвестное) видео -> en, ru; не английское -> ru, en.
+    # Настройка пользователя важнее всего. Дальше выбираем порядок по языку видео:
+    # английское (или неизвестное) видео -> en, ru; не английское -> оригинал, ru, en.
     & $addBase $Preferred
     $primaryBase = ''
     if (-not [string]::IsNullOrWhiteSpace($primary)) { $primaryBase = ($primary -split '-')[0] }
     if ($primaryBase -and $primaryBase -inotmatch '^en$') {
+        & $addBase $primary
         & $addBase 'ru'
         & $addBase 'en'
     }
@@ -85,8 +109,6 @@ function Get-BestSubtitleLanguage {
         & $addBase 'en'
         & $addBase 'ru'
     }
-    # Язык из метаданных — в конце (YouTube отдаёт его нестабильно).
-    & $addBase $primary
 
     # Финальный фолбэк: любые оригинальные авто-дорожки, ручные, затем всё остальное.
     foreach ($o in ($auto   | Where-Object { $_ -match '-orig$' })) { & $add $o }
@@ -128,6 +150,7 @@ function Get-YoutubeTranscript {
 
                 $vtt = Get-ChildItem -Path $tempDir -Filter '*.vtt' -ErrorAction SilentlyContinue | Select-Object -First 1
                 if ($vtt) {
+                    Write-Host "Субтитры получены, язык: $lang" -ForegroundColor Green
                     $entries = ConvertFrom-VttFile -Path $vtt.FullName
                     return (Format-Transcript -Entries $entries -GroupSeconds $GroupSeconds)
                 }
