@@ -13,11 +13,15 @@ function Get-VideoSummary {
         return '_Транскрипт недоступен — summary не сформировано._'
     }
 
+    # Дублируем требование языка в пользовательском сообщении: модель сильнее следует
+    # последней инструкции рядом с данными, чем системному промту, и не зеркалит язык транскрипта.
+    $ruNote = "ЯЗЫК ОТВЕТА — РУССКИЙ. Составь summary строго на русском языке, даже если транскрипт ниже на другом языке (английском, украинском и т.д.). Не пиши на языке транскрипта."
+
     $maxTokens = [int]$Config.MaxTokensPerChunk
     if ($maxTokens -le 0) { $maxTokens = 4000 }
 
     if ((Get-EstimatedTokens $Transcript) -le $maxTokens) {
-        return (Invoke-ProviderSummary -SystemPrompt $Prompt -UserContent $Transcript -Config $Config)
+        return (Invoke-ProviderSummary -SystemPrompt $Prompt -UserContent "$ruNote`n`n$Transcript" -Config $Config)
     }
 
     $chunks = Split-Transcript -Transcript $Transcript -MaxTokens $maxTokens
@@ -26,7 +30,7 @@ function Get-VideoSummary {
     $partials = [System.Collections.Generic.List[string]]::new()
     for ($n = 0; $n -lt $chunks.Count; $n++) {
         $partPrompt = $Prompt + "`n`nЭто ЧАСТЬ $($n + 1) из $($chunks.Count) транскрипта одного видео. Составь summary только для этой части, строго соблюдая требуемый формат."
-        $partials.Add((Invoke-ProviderSummary -SystemPrompt $partPrompt -UserContent $chunks[$n] -Config $Config))
+        $partials.Add((Invoke-ProviderSummary -SystemPrompt $partPrompt -UserContent "$ruNote`n`n$($chunks[$n])" -Config $Config))
     }
 
     return (Merge-Summaries -Partials $partials -Prompt $Prompt -Config $Config -MaxTokens $maxTokens)
